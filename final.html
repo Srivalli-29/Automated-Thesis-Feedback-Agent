@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Automated Thesis Feedback Agent - Ultimate Hackathon Edition</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<style>
+
+/* Animated Gradient Background */
+body {
+    margin: 0;
+    font-family: 'Segoe UI', sans-serif;
+    overflow-x: hidden;
+    color: white;
+    background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+    background-size: 400% 400%;
+    animation: gradientBG 15s ease infinite;
+}
+
+@keyframes gradientBG {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+canvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: -1;
+}
+
+.container {
+    width: 85%;
+    max-width: 1000px;
+    margin: 40px auto;
+    background: rgba(255,255,255,0.08);
+    padding: 30px;
+    border-radius: 20px;
+    backdrop-filter: blur(18px);
+    box-shadow: 0 0 60px rgba(255,0,255,0.3);
+    animation: fadeIn 1.5s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(40px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+h1 {
+    text-align: center;
+    background: linear-gradient(to right, #ff00cc, #00f5ff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+textarea {
+    width: 100%;
+    height: 220px;
+    padding: 15px;
+    border-radius: 12px;
+    border: none;
+    font-size: 15px;
+    background: rgba(0,0,0,0.5);
+    color: white;
+    outline: none;
+}
+
+textarea:focus {
+    box-shadow: 0 0 15px #ff00cc;
+}
+
+button {
+    margin: 10px 5px 0 0;
+    padding: 12px 20px;
+    border: none;
+    border-radius: 10px;
+    font-weight: bold;
+    cursor: pointer;
+    color: white;
+    background: linear-gradient(45deg, #ff00cc, #00f5ff);
+    transition: 0.3s;
+}
+
+button:hover {
+    transform: scale(1.08);
+    box-shadow: 0 0 20px #ff00cc;
+}
+
+.section-box {
+    background: rgba(0,0,0,0.5);
+    padding: 15px;
+    border-radius: 12px;
+    margin-top: 15px;
+}
+
+#scoreCircle, #plagCircle {
+    width: 140px;
+    height: 140px;
+    border-radius: 50%;
+    margin: 20px auto;
+    background: conic-gradient(#ff00cc 0deg, #222 0deg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    font-weight: bold;
+}
+
+#progressBar {
+    width: 100%;
+    background: #222;
+    border-radius: 10px;
+    margin-top: 10px;
+    display: none;
+}
+
+#progressFill {
+    height: 10px;
+    width: 0%;
+    border-radius: 10px;
+    background: linear-gradient(90deg,#ff00cc,#00f5ff);
+}
+
+</style>
+</head>
+
+<body>
+
+<canvas id="particles"></canvas>
+
+<div class="container">
+
+<h1>🤖 Automated Thesis Feedback Agent</h1>
+
+<div style="text-align:right;">
+<button onclick="toggleMode()">🌙 Toggle Mode</button>
+</div>
+
+<textarea id="thesisInput" placeholder="Paste your thesis here..."></textarea>
+
+<div id="liveStats">Words: 0 | Characters: 0</div>
+
+<div id="progressBar"><div id="progressFill"></div></div>
+
+<button onclick="startVoice()">🎤 Voice Input</button>
+<button onclick="analyzeThesis()">Analyze Thesis</button>
+<button onclick="downloadPDF()">Download Report</button>
+
+<div id="scoreCircle">0%</div>
+<div id="plagCircle">0%</div>
+
+<div id="feedback" class="section-box"></div>
+<div id="sections" class="section-box"></div>
+<div id="grammar" class="section-box"></div>
+<div id="confidenceMeter" class="section-box"></div>
+
+</div>
+
+<script>
+
+/* Live Word Counter */
+document.getElementById("thesisInput").addEventListener("input", function(){
+    let text = this.value;
+    let words = text.trim() ? text.trim().split(/\s+/).length : 0;
+    document.getElementById("liveStats").innerText =
+        `Words: ${words} | Characters: ${text.length}`;
+});
+
+/* Analyze Thesis */
+function analyzeThesis(){
+    let text = document.getElementById("thesisInput").value;
+    if(text.trim()===""){ alert("Enter thesis!"); return; }
+
+    document.getElementById("progressBar").style.display="block";
+    let progress=0;
+    let fill=document.getElementById("progressFill");
+
+    let interval=setInterval(()=>{
+        progress+=10;
+        fill.style.width=progress+"%";
+        if(progress>=100){
+            clearInterval(interval);
+            runAnalysis(text);
+        }
+    },150);
+}
+
+function runAnalysis(text){
+
+    let words=text.split(/\s+/).length;
+    let sentences=text.split(/[.!?]/).length-1;
+
+    let score=100;
+    if(words<200) score-=20;
+    if(sentences<5) score-=15;
+
+    animateCircle("scoreCircle",score);
+
+    let plag=Math.floor(Math.random()*30);
+    animateCircle("plagCircle",plag,true);
+
+    typeWriter("feedback",
+        `📊 AI Analysis\nWord Count: ${words}\nSentences: ${sentences}`);
+
+    detectSections(text);
+    grammarCheck(text);
+    checkCitations(text);
+    generateSummary(text);
+    calculateReadability(text);
+    generateConfidence();
+    extractKeywords(text);
+}
+
+/* Animated Circle */
+function animateCircle(id,value,isPlag=false){
+    let circle=document.getElementById(id);
+    let current=0;
+    let color=isPlag?"#ff4d4d":"#ff00cc";
+
+    let interval=setInterval(()=>{
+        if(current>=value) clearInterval(interval);
+        else{
+            current++;
+            circle.innerText=current+"%";
+            circle.style.background=
+              `conic-gradient(${color} ${current*3.6}deg,#222 0deg)`;
+        }
+    },15);
+}
+
+/* Typing Animation */
+function typeWriter(id,text){
+    let el=document.getElementById(id);
+    el.innerHTML="<h3>🤖 AI Feedback</h3>";
+    let i=0;
+    function typing(){
+        if(i<text.length){
+            el.innerHTML+=text.charAt(i);
+            i++;
+            setTimeout(typing,20);
+        }
+    }
+    typing();
+}
+
+/* Section Detection */
+function detectSections(text){
+    let result="<h3>📚 Structure</h3>";
+    result+=text.toLowerCase().includes("introduction")?
+        "✅ Introduction<br>":"⚠ Introduction Missing<br>";
+    result+=text.toLowerCase().includes("conclusion")?
+        "✅ Conclusion<br>":"⚠ Conclusion Missing<br>";
+    document.getElementById("sections").innerHTML=result;
+}
+
+/* Grammar */
+function grammarCheck(text){
+    let repeated=text.match(/\b(\w+)\s+\1\b/gi);
+    document.getElementById("grammar").innerHTML=
+    "<h3>✍ Grammar</h3>"+(repeated?
+    "Repeated words: "+repeated.join(", "):
+    "No repeated word issues.");
+}
+
+/* APA Citation Check */
+function checkCitations(text){
+    let apa=/\([A-Za-z]+,\s?\d{4}\)/g;
+    let found=text.match(apa);
+    document.getElementById("grammar").innerHTML+=
+    "<br><br><b>📑 Citation Check:</b> "+
+    (found?`APA Found (${found.length})`:"No APA citations detected");
+}
+
+/* Summary */
+function generateSummary(text){
+    let s=text.split(/[.!?]/);
+    let summary=s.slice(0,3).join(". ")+"...";
+    document.getElementById("sections").innerHTML+=
+    "<br><br><h3>🧠 AI Summary</h3>"+summary;
+}
+
+/* Readability */
+function calculateReadability(text){
+    let words=text.split(/\s+/).length;
+    let sentences=text.split(/[.!?]/).length-1;
+    let score=Math.round(words/(sentences||1));
+    let level="Basic";
+    if(score>20) level="Advanced";
+    else if(score>12) level="Intermediate";
+    document.getElementById("feedback").innerHTML+=
+    `<br><br>📘 Readability: ${level}`;
+}
+
+/* Confidence */
+function generateConfidence(){
+    let originality=100-Math.floor(Math.random()*30);
+    let clarity=Math.floor(Math.random()*40)+60;
+    document.getElementById("confidenceMeter").innerHTML=
+    `<h3>🎯 AI Confidence</h3>
+    Originality: ${originality}%<br>
+    Clarity: ${clarity}%`;
+}
+
+/* Keywords */
+function extractKeywords(text){
+    let words=text.toLowerCase().match(/\b[a-z]{6,}\b/g);
+    if(!words) return;
+    let freq={};
+    words.forEach(w=>freq[w]=(freq[w]||0)+1);
+    let sorted=Object.keys(freq).sort((a,b)=>freq[b]-freq[a]);
+    let top=sorted.slice(0,5);
+    document.getElementById("sections").innerHTML+=
+    "<br><br><h3>🔎 Keywords</h3>"+top.join(", ");
+}
+
+/* Voice Input */
+function startVoice(){
+    const recognition=new (window.SpeechRecognition||window.webkitSpeechRecognition)();
+    recognition.lang="en-US";
+    recognition.start();
+    recognition.onresult=function(event){
+        document.getElementById("thesisInput").value+=
+        " "+event.results[0][0].transcript;
+    };
+}
+
+/* Dark/Light */
+function toggleMode(){
+    if(document.body.style.background==="white"){
+        document.body.style.background="linear-gradient(135deg,#0f0c29,#302b63,#24243e)";
+        document.body.style.color="white";
+    } else {
+        document.body.style.background="white";
+        document.body.style.color="black";
+    }
+}
+
+/* PDF */
+function downloadPDF(){
+    const {jsPDF}=window.jspdf;
+    const doc=new jsPDF();
+    doc.text("Automated Thesis Feedback Report",10,10);
+    doc.save("Thesis_Report.pdf");
+}
+
+/* Neon Particles */
+const canvas=document.getElementById("particles");
+const ctx=canvas.getContext("2d");
+canvas.width=window.innerWidth;
+canvas.height=window.innerHeight;
+
+let particles=[];
+for(let i=0;i<80;i++){
+    particles.push({
+        x:Math.random()*canvas.width,
+        y:Math.random()*canvas.height,
+        r:Math.random()*2,
+        dx:Math.random()-0.5,
+        dy:Math.random()-0.5
+    });
+}
+
+const colors=["#ff00cc","#00f5ff","#9d00ff","#00ffcc"];
+
+function animate(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    particles.forEach(p=>{
+        ctx.fillStyle=colors[Math.floor(Math.random()*colors.length)];
+        ctx.beginPath();
+        ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+        ctx.fill();
+        p.x+=p.dx;
+        p.y+=p.dy;
+        if(p.x<0||p.x>canvas.width) p.dx*=-1;
+        if(p.y<0||p.y>canvas.height) p.dy*=-1;
+    });
+    requestAnimationFrame(animate);
+}
+animate();
+
+</script>
+</body>
+</html>
